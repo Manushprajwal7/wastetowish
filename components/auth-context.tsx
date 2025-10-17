@@ -30,32 +30,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
 
-  const fetchUserData = useCallback(async (fbUser: FirebaseUser) => {
-    try {
-      // Fetch user data from Firestore
-      const userDoc = await getDoc(doc(db, "users", fbUser.uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        setUser({
-          id: fbUser.uid,
-          name: userData.name || fbUser.displayName || "User",
-          email: userData.email || fbUser.email || "",
-          photoURL: userData.photoURL || fbUser.photoURL || undefined,
-          ecoPoints: userData.ecoPoints || 0,
-          createdAt: userData.createdAt || Date.now(),
-          emailVerified: fbUser.emailVerified,
-          rating: userData.rating,
-          reviewCount: userData.reviewCount,
-          bio: userData.bio,
-          location: userData.location,
-          joinedDate: userData.joinedDate,
-          totalDonations: userData.totalDonations,
-          totalRequests: userData.totalRequests,
-          blockedUsers: userData.blockedUsers || [],
-        });
-      } else {
-        // Fallback if user document doesn't exist
+  const fetchUserData = useCallback(
+    async (fbUser: FirebaseUser) => {
+      try {
+        // Fetch user data from Firestore only if not already loaded
+        if (initialLoad) {
+          const userDoc = await getDoc(doc(db, "users", fbUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setUser({
+              id: fbUser.uid,
+              name: userData.name || fbUser.displayName || "User",
+              email: userData.email || fbUser.email || "",
+              photoURL: userData.photoURL || fbUser.photoURL || undefined,
+              ecoPoints: userData.ecoPoints || 0,
+              createdAt: userData.createdAt || Date.now(),
+              emailVerified: fbUser.emailVerified,
+              rating: userData.rating,
+              reviewCount: userData.reviewCount,
+              bio: userData.bio,
+              location: userData.location,
+              joinedDate: userData.joinedDate,
+              totalDonations: userData.totalDonations,
+              totalRequests: userData.totalRequests,
+              blockedUsers: userData.blockedUsers || [],
+            });
+          } else {
+            // Fallback if user document doesn't exist
+            setUser({
+              id: fbUser.uid,
+              name: fbUser.displayName || "User",
+              email: fbUser.email || "",
+              photoURL: fbUser.photoURL || undefined,
+              ecoPoints: 0,
+              createdAt: Date.now(),
+              emailVerified: fbUser.emailVerified,
+            });
+          }
+          setInitialLoad(false);
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        // Fallback user data
         setUser({
           id: fbUser.uid,
           name: fbUser.displayName || "User",
@@ -65,27 +83,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           createdAt: Date.now(),
           emailVerified: fbUser.emailVerified,
         });
+        setInitialLoad(false);
       }
-    } catch (error) {
-      console.error("Error fetching user data:", error);
-      // Fallback user data
-      setUser({
-        id: fbUser.uid,
-        name: fbUser.displayName || "User",
-        email: fbUser.email || "",
-        photoURL: fbUser.photoURL || undefined,
-        ecoPoints: 0,
-        createdAt: Date.now(),
-        emailVerified: fbUser.emailVerified,
-      });
-    }
-  }, []);
+    },
+    [initialLoad]
+  );
 
   const signOut = useCallback(async () => {
     try {
       await firebaseSignOut(auth);
       setUser(null);
       setFirebaseUser(null);
+      setInitialLoad(true);
     } catch (error) {
       console.error("Error signing out:", error);
       throw error;
@@ -99,12 +108,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await fetchUserData(fbUser);
       } else {
         setUser(null);
+        setInitialLoad(true);
       }
-      setLoading(false);
+      // Only set loading to false after initial auth state is determined
+      if (loading) {
+        setLoading(false);
+      }
     });
 
     return unsubscribe;
-  }, [fetchUserData]);
+  }, [fetchUserData, loading]);
 
   return (
     <AuthContext.Provider value={{ user, firebaseUser, loading, signOut }}>

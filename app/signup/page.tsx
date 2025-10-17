@@ -110,8 +110,8 @@ export default function SignupPage() {
 
       console.log("User document created in Firestore");
 
-      // Redirect to marketplace
-      router.push("/marketplace");
+      // Redirect to dashboard
+      router.push("/dashboard");
     } catch (err: any) {
       console.error("Signup error:", err);
       console.error("Error code:", err.code);

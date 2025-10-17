@@ -1,62 +1,83 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { collection, getDocs, countFromServer, query, where } from "firebase/firestore"
-import { db } from "@/lib/firebase"
-import { useAuth } from "@/components/auth-context"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
-import { Users, Package, MessageSquare, TrendingUp, AlertCircle, ArrowLeft } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react";
+import {
+  collection,
+  getDocs,
+  getCountFromServer,
+  query,
+  where,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/components/auth-context";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
+import {
+  Users,
+  Package,
+  MessageSquare,
+  TrendingUp,
+  AlertCircle,
+  ArrowLeft,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 
 export default function AdminDashboard() {
-  const { user } = useAuth()
-  const router = useRouter()
+  const { user } = useAuth();
+  const router = useRouter();
   const [stats, setStats] = useState({
     totalUsers: 0,
     totalItems: 0,
     totalRequests: 0,
     completedRequests: 0,
     availableItems: 0,
-  })
-  const [categoryData, setCategoryData] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [isAdmin, setIsAdmin] = useState(false)
+  });
+  const [categoryData, setCategoryData] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     // Check if user is admin (in a real app, this would be verified on the backend)
     if (user?.email?.includes("admin")) {
-      setIsAdmin(true)
+      setIsAdmin(true);
     }
-  }, [user])
+  }, [user]);
 
   useEffect(() => {
-    if (!isAdmin) return
+    if (!isAdmin) return;
 
     const fetchAdminStats = async () => {
       try {
         // Get total users
-        const usersSnapshot = await countFromServer(collection(db, "users"))
-        const totalUsers = usersSnapshot.data().count
+        const usersSnapshot = await getCountFromServer(collection(db, "users"));
+        const totalUsers = usersSnapshot.data().count;
 
         // Get total items
-        const itemsSnapshot = await countFromServer(collection(db, "items"))
-        const totalItems = itemsSnapshot.data().count
+        const itemsSnapshot = await getCountFromServer(collection(db, "items"));
+        const totalItems = itemsSnapshot.data().count;
 
         // Get available items
-        const availableQuery = query(collection(db, "items"), where("status", "==", "available"))
-        const availableSnapshot = await countFromServer(availableQuery)
-        const availableItems = availableSnapshot.data().count
+        const availableQuery = query(
+          collection(db, "items"),
+          where("status", "==", "available")
+        );
+        const availableSnapshot = await getCountFromServer(availableQuery);
+        const availableItems = availableSnapshot.data().count;
 
         // Get total requests
-        const requestsSnapshot = await countFromServer(collection(db, "requests"))
-        const totalRequests = requestsSnapshot.data().count
+        const requestsSnapshot = await getCountFromServer(
+          collection(db, "requests")
+        );
+        const totalRequests = requestsSnapshot.data().count;
 
         // Get completed requests
-        const completedQuery = query(collection(db, "requests"), where("status", "==", "completed"))
-        const completedSnapshot = await countFromServer(completedQuery)
-        const completedRequests = completedSnapshot.data().count
+        const completedQuery = query(
+          collection(db, "requests"),
+          where("status", "==", "completed")
+        );
+        const completedSnapshot = await getCountFromServer(completedQuery);
+        const completedRequests = completedSnapshot.data().count;
 
         setStats({
           totalUsers,
@@ -64,30 +85,32 @@ export default function AdminDashboard() {
           totalRequests,
           completedRequests,
           availableItems,
-        })
+        });
 
         // Get category distribution
-        const itemsData = await getDocs(collection(db, "items"))
-        const categoryCount: Record<string, number> = {}
+        const itemsData = await getDocs(collection(db, "items"));
+        const categoryCount: Record<string, number> = {};
         itemsData.docs.forEach((doc) => {
-          const category = doc.data().category
-          categoryCount[category] = (categoryCount[category] || 0) + 1
-        })
+          const category = doc.data().category;
+          categoryCount[category] = (categoryCount[category] || 0) + 1;
+        });
 
-        const categoryChartData = Object.entries(categoryCount).map(([name, value]) => ({
-          name,
-          value,
-        }))
-        setCategoryData(categoryChartData)
+        const categoryChartData = Object.entries(categoryCount).map(
+          ([name, value]) => ({
+            name,
+            value,
+          })
+        );
+        setCategoryData(categoryChartData);
       } catch (err) {
-        console.error("Failed to fetch admin stats:", err)
+        console.error("Failed to fetch admin stats:", err);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchAdminStats()
-  }, [isAdmin])
+    fetchAdminStats();
+  }, [isAdmin]);
 
   if (!isAdmin) {
     return (
@@ -95,13 +118,15 @@ export default function AdminDashboard() {
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
           <p className="text-lg font-semibold mb-2">Access Denied</p>
-          <p className="text-muted-foreground mb-4">You don't have permission to access the admin dashboard</p>
+          <p className="text-muted-foreground mb-4">
+            You don't have permission to access the admin dashboard
+          </p>
           <Link href="/">
             <Button>Return Home</Button>
           </Link>
         </div>
       </div>
-    )
+    );
   }
 
   if (loading) {
@@ -109,29 +134,36 @@ export default function AdminDashboard() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
-    )
+    );
   }
 
-  const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6"]
+  const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6"];
 
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <button onClick={() => router.back()} className="flex items-center gap-2 text-primary hover:underline mb-8">
+        <button
+          onClick={() => router.back()}
+          className="flex items-center gap-2 text-primary hover:underline mb-8"
+        >
           <ArrowLeft className="w-4 h-4" />
           Back
         </button>
 
         <div className="mb-8">
           <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Platform analytics and moderation tools</p>
+          <p className="text-muted-foreground">
+            Platform analytics and moderation tools
+          </p>
         </div>
 
         {/* Stats Grid */}
         <div className="grid md:grid-cols-5 gap-4 mb-8">
           <div className="bg-card border border-border rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-muted-foreground text-sm">Total Users</h3>
+              <h3 className="font-semibold text-muted-foreground text-sm">
+                Total Users
+              </h3>
               <Users className="w-5 h-5 text-primary" />
             </div>
             <p className="text-3xl font-bold">{stats.totalUsers}</p>
@@ -139,7 +171,9 @@ export default function AdminDashboard() {
 
           <div className="bg-card border border-border rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-muted-foreground text-sm">Total Items</h3>
+              <h3 className="font-semibold text-muted-foreground text-sm">
+                Total Items
+              </h3>
               <Package className="w-5 h-5 text-primary" />
             </div>
             <p className="text-3xl font-bold">{stats.totalItems}</p>
@@ -147,7 +181,9 @@ export default function AdminDashboard() {
 
           <div className="bg-card border border-border rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-muted-foreground text-sm">Available Items</h3>
+              <h3 className="font-semibold text-muted-foreground text-sm">
+                Available Items
+              </h3>
               <TrendingUp className="w-5 h-5 text-primary" />
             </div>
             <p className="text-3xl font-bold">{stats.availableItems}</p>
@@ -155,7 +191,9 @@ export default function AdminDashboard() {
 
           <div className="bg-card border border-border rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-muted-foreground text-sm">Total Requests</h3>
+              <h3 className="font-semibold text-muted-foreground text-sm">
+                Total Requests
+              </h3>
               <MessageSquare className="w-5 h-5 text-primary" />
             </div>
             <p className="text-3xl font-bold">{stats.totalRequests}</p>
@@ -163,7 +201,9 @@ export default function AdminDashboard() {
 
           <div className="bg-card border border-border rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-muted-foreground text-sm">Completed</h3>
+              <h3 className="font-semibold text-muted-foreground text-sm">
+                Completed
+              </h3>
               <TrendingUp className="w-5 h-5 text-green-600" />
             </div>
             <p className="text-3xl font-bold">{stats.completedRequests}</p>
@@ -189,14 +229,19 @@ export default function AdminDashboard() {
                     dataKey="value"
                   >
                     {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
                     ))}
                   </Pie>
                   <Tooltip />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <p className="text-muted-foreground text-center py-8">No data available</p>
+              <p className="text-muted-foreground text-center py-8">
+                No data available
+              </p>
             )}
           </div>
 
@@ -208,14 +253,24 @@ export default function AdminDashboard() {
                 <div className="flex justify-between mb-2">
                   <span className="text-sm font-medium">Completion Rate</span>
                   <span className="text-sm font-bold">
-                    {stats.totalRequests > 0 ? Math.round((stats.completedRequests / stats.totalRequests) * 100) : 0}%
+                    {stats.totalRequests > 0
+                      ? Math.round(
+                          (stats.completedRequests / stats.totalRequests) * 100
+                        )
+                      : 0}
+                    %
                   </span>
                 </div>
                 <div className="w-full bg-muted rounded-full h-2">
                   <div
                     className="bg-primary h-2 rounded-full transition-all"
                     style={{
-                      width: `${stats.totalRequests > 0 ? (stats.completedRequests / stats.totalRequests) * 100 : 0}%`,
+                      width: `${
+                        stats.totalRequests > 0
+                          ? (stats.completedRequests / stats.totalRequests) *
+                            100
+                          : 0
+                      }%`,
                     }}
                   ></div>
                 </div>
@@ -223,12 +278,18 @@ export default function AdminDashboard() {
 
               <div className="grid grid-cols-2 gap-4 mt-6">
                 <div className="bg-muted rounded-lg p-4">
-                  <p className="text-xs text-muted-foreground mb-1">Completed</p>
-                  <p className="text-2xl font-bold">{stats.completedRequests}</p>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    Completed
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {stats.completedRequests}
+                  </p>
                 </div>
                 <div className="bg-muted rounded-lg p-4">
                   <p className="text-xs text-muted-foreground mb-1">Pending</p>
-                  <p className="text-2xl font-bold">{stats.totalRequests - stats.completedRequests}</p>
+                  <p className="text-2xl font-bold">
+                    {stats.totalRequests - stats.completedRequests}
+                  </p>
                 </div>
               </div>
             </div>
@@ -240,19 +301,28 @@ export default function AdminDashboard() {
           <h2 className="text-xl font-bold mb-6">Management Tools</h2>
           <div className="grid md:grid-cols-3 gap-4">
             <Link href="/admin/users">
-              <Button variant="outline" className="w-full justify-start gap-2 bg-transparent">
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 bg-transparent"
+              >
                 <Users className="w-4 h-4" />
                 Manage Users
               </Button>
             </Link>
             <Link href="/admin/items">
-              <Button variant="outline" className="w-full justify-start gap-2 bg-transparent">
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 bg-transparent"
+              >
                 <Package className="w-4 h-4" />
                 Manage Items
               </Button>
             </Link>
             <Link href="/admin/reports">
-              <Button variant="outline" className="w-full justify-start gap-2 bg-transparent">
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 bg-transparent"
+              >
                 <AlertCircle className="w-4 h-4" />
                 View Reports
               </Button>
@@ -261,5 +331,5 @@ export default function AdminDashboard() {
         </div>
       </div>
     </div>
-  )
+  );
 }

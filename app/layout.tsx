@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { AuthProvider } from "@/components/auth-context";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/app/footer";
+import { FirebaseDebug } from "@/components/firebase-debug";
 import "./globals.css";
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -24,6 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans antialiased`}>
+        <FirebaseDebug />
         <AuthProvider>
           <Navbar />
           {children}

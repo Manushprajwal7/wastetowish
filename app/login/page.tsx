@@ -74,7 +74,7 @@ export default function LoginPage() {
       );
 
       console.log("User signed in successfully:", userCredential.user);
-      router.push("/marketplace");
+      router.push("/dashboard");
     } catch (err: any) {
       console.error("Login error:", err);
       console.error("Error code:", err.code);

@@ -1,68 +1,105 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { collection, query, where, onSnapshot } from "firebase/firestore"
-import { db } from "@/lib/firebase"
-import { useAuth } from "@/components/auth-context"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import Link from "next/link"
-import type { Item } from "@/lib/types"
-import { Search, Heart, MapPin } from "lucide-react"
+import { useState, useEffect, useMemo, useCallback } from "react";
+import {
+  collection,
+  query,
+  where,
+  onSnapshot,
+  limit,
+  orderBy,
+  QuerySnapshot,
+  DocumentData,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/components/auth-context";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import Link from "next/link";
+import type { Item } from "@/lib/types";
+import { Search, Heart, MapPin } from "lucide-react";
+import { MarketplaceSkeleton } from "@/components/ui/loading-skeleton";
 
 export default function MarketplacePage() {
-  const { user, loading: authLoading } = useAuth()
-  const [items, setItems] = useState<Item[]>([])
-  const [filteredItems, setFilteredItems] = useState<Item[]>([])
-  const [searchTerm, setSearchTerm] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState("All")
-  const [loading, setLoading] = useState(true)
+  const { user, loading: authLoading } = useAuth();
+  const [items, setItems] = useState<Item[]>([]);
+  const [filteredItems, setFilteredItems] = useState<Item[]>([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [loading, setLoading] = useState(true);
 
-  const categories = ["All", "Books", "Electronics", "Furniture", "Clothing", "Kitchen", "Sports", "Other"]
+  const categories = [
+    "All",
+    "Books",
+    "Electronics",
+    "Furniture",
+    "Clothing",
+    "Kitchen",
+    "Sports",
+    "Other",
+  ];
 
+  // Optimize data fetching with limits and better query structure
   useEffect(() => {
-    if (authLoading) return
+    if (authLoading) return;
 
-    setLoading(true)
-    const itemsRef = collection(db, "items")
-    const q = query(itemsRef, where("status", "==", "available"))
+    setLoading(true);
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const itemsData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Item[]
-      setItems(itemsData)
-      setLoading(false)
-    })
+    // Limit initial fetch to improve performance
+    const itemsRef = collection(db, "items");
+    const q = query(
+      itemsRef,
+      where("status", "==", "available"),
+      orderBy("createdAt", "desc"),
+      limit(50) // Limit to 50 most recent items to improve performance
+    );
 
-    return unsubscribe
-  }, [authLoading])
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot: QuerySnapshot<DocumentData>) => {
+        const itemsData = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as Item[];
+        setItems(itemsData);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error fetching items:", error);
+        setLoading(false);
+      }
+    );
 
-  useEffect(() => {
-    let filtered = items
+    return unsubscribe;
+  }, [authLoading]);
+
+  // Optimize filtering with useCallback and useMemo
+  const filterItems = useCallback(() => {
+    let filtered = items;
 
     if (selectedCategory !== "All") {
-      filtered = filtered.filter((item) => item.category === selectedCategory)
+      filtered = filtered.filter((item) => item.category === selectedCategory);
     }
 
     if (searchTerm) {
+      const term = searchTerm.toLowerCase();
       filtered = filtered.filter(
         (item) =>
-          item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          item.description.toLowerCase().includes(searchTerm.toLowerCase()),
-      )
+          item.title.toLowerCase().includes(term) ||
+          item.description.toLowerCase().includes(term)
+      );
     }
 
-    setFilteredItems(filtered)
-  }, [items, searchTerm, selectedCategory])
+    return filtered;
+  }, [items, searchTerm, selectedCategory]);
+
+  // Apply filtering only when dependencies change
+  useEffect(() => {
+    setFilteredItems(filterItems());
+  }, [filterItems]);
 
   if (authLoading || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    )
+    return <MarketplaceSkeleton />;
   }
 
   if (!user) {
@@ -75,7 +112,7 @@ export default function MarketplacePage() {
           </Link>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -122,7 +159,9 @@ export default function MarketplacePage() {
 
         {filteredItems.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground text-lg">No items found. Be the first to donate!</p>
+            <p className="text-muted-foreground text-lg">
+              No items found. Be the first to donate!
+            </p>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -131,20 +170,35 @@ export default function MarketplacePage() {
                 <div className="bg-card border border-border rounded-lg overflow-hidden hover:shadow-lg transition cursor-pointer h-full flex flex-col">
                   <div className="w-full h-48 bg-muted flex items-center justify-center">
                     {item.imageURL ? (
+                      // Add loading attribute to improve performance
                       <img
                         src={item.imageURL || "/placeholder.svg"}
                         alt={item.title}
                         className="w-full h-full object-cover"
+                        loading="lazy"
+                        onError={(e) => {
+                          // Handle broken image links
+                          const target = e.target as HTMLImageElement;
+                          target.src = "/placeholder.svg";
+                        }}
                       />
                     ) : (
-                      <div className="text-muted-foreground">No image</div>
+                      <div className="text-muted-foreground flex items-center justify-center w-full h-full">
+                        <span>No image</span>
+                      </div>
                     )}
                   </div>
                   <div className="p-4 flex-1 flex flex-col">
-                    <h3 className="font-bold text-lg mb-2 line-clamp-2">{item.title}</h3>
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{item.description}</p>
+                    <h3 className="font-bold text-lg mb-2 line-clamp-2">
+                      {item.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                      {item.description}
+                    </p>
                     <div className="flex gap-2 mb-3 flex-wrap">
-                      <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">{item.category}</span>
+                      <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                        {item.category}
+                      </span>
                       <span className="text-xs bg-secondary/10 text-secondary-foreground px-2 py-1 rounded">
                         {item.condition}
                       </span>
@@ -154,7 +208,9 @@ export default function MarketplacePage() {
                         <MapPin className="w-3 h-3" />
                         {item.location || "Location not specified"}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1">By {item.ownerName}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        By {item.ownerName}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -164,5 +220,5 @@ export default function MarketplacePage() {
         )}
       </div>
     </div>
-  )
+  );
 }
