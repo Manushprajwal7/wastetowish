@@ -34,6 +34,7 @@ export default function DashboardPage() {
   });
   const [recentItems, setRecentItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     console.log("Dashboard useEffect triggered", { authLoading, user });
@@ -43,6 +44,7 @@ export default function DashboardPage() {
     }
 
     setLoading(true);
+    setError(null);
     console.log("Dashboard: Setting up listeners for user:", user?.id);
 
     // Listen for real-time updates to items
@@ -83,6 +85,9 @@ export default function DashboardPage() {
       },
       (error) => {
         console.error("Error listening to items:", error);
+        setError(
+          "Failed to load dashboard data. Please check your connection and try again."
+        );
         if (loading) {
           setLoading(false);
         }
@@ -107,6 +112,9 @@ export default function DashboardPage() {
       },
       (error) => {
         console.error("Error listening to received requests:", error);
+        setError(
+          "Failed to load dashboard data. Please check your connection and try again."
+        );
       }
     );
 
@@ -125,6 +133,9 @@ export default function DashboardPage() {
       },
       (error) => {
         console.error("Error listening to sent requests:", error);
+        setError(
+          "Failed to load dashboard data. Please check your connection and try again."
+        );
       }
     );
 
@@ -142,7 +153,7 @@ export default function DashboardPage() {
       unsubscribeReceived();
       unsubscribeSent();
     };
-  }, [user, authLoading, loading]);
+  }, [user, authLoading]); // Removed 'loading' from dependency array to prevent infinite loop
 
   // Wrap content with ProtectedRoute
   return (
@@ -170,15 +181,13 @@ export default function DashboardPage() {
               <p className="text-muted-foreground">
                 Here's your sustainability impact at a glance
               </p>
-              <Button
-                onClick={() => window.location.reload()}
-                variant="outline"
-                size="sm"
-                className="mt-2"
-              >
-                Refresh Data
-              </Button>
             </div>
+
+            {error && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mb-6">
+                <p className="text-destructive">{error}</p>
+              </div>
+            )}
 
             {/* Stats Grid */}
             <div className="grid md:grid-cols-4 gap-6 mb-8">
@@ -308,25 +317,19 @@ export default function DashboardPage() {
             {/* Quick Actions */}
             <div className="grid md:grid-cols-3 gap-6">
               <Link href="/add-item">
-                <Button className="w-full h-24 flex flex-col items-center justify-center gap-2">
+                <Button className="w-full h-24 flex flex-col items-center justify-center gap-2 bg-green-600 text-white hover:bg-green-700">
                   <Package className="w-6 h-6" />
                   <span>Donate Item</span>
                 </Button>
               </Link>
               <Link href="/marketplace">
-                <Button
-                  variant="outline"
-                  className="w-full h-24 flex flex-col items-center justify-center gap-2 bg-transparent"
-                >
+                <Button className="w-full h-24 flex flex-col items-center justify-center gap-2 bg-green-600 text-white hover:bg-green-700">
                   <Heart className="w-6 h-6" />
                   <span>Browse Items</span>
                 </Button>
               </Link>
               <Link href="/requests">
-                <Button
-                  variant="outline"
-                  className="w-full h-24 flex flex-col items-center justify-center gap-2 bg-transparent"
-                >
+                <Button className="w-full h-24 flex flex-col items-center justify-center gap-2 bg-green-600 text-white hover:bg-green-700">
                   <MessageSquare className="w-6 h-6" />
                   <span>View Requests</span>
                 </Button>

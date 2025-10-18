@@ -15,7 +15,8 @@ if (isBrowser) {
   if (API_KEY) {
     try {
       genAI = new GoogleGenerativeAI(API_KEY);
-      model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      // Using a model that is confirmed to work with the current API version
+      model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     } catch (error) {
       console.error("Failed to initialize Google Generative AI:", error);
     }

@@ -101,21 +101,7 @@ export function Navbar() {
             {user ? (
               <>
                 <NotificationBell />
-                <Link href="/chat">
-                  <Button variant="ghost" size="icon">
-                    <MessageSquare className="w-5 h-5" />
-                  </Button>
-                </Link>
-                <Link href="/wishlist">
-                  <Button variant="ghost" size="icon" title="Wishlist">
-                    <Heart className="w-5 h-5" />
-                  </Button>
-                </Link>
-                <Link href="/leaderboard">
-                  <Button variant="ghost" size="icon" title="Leaderboard">
-                    <Trophy className="w-5 h-5" />
-                  </Button>
-                </Link>
+
                 <Button
                   variant="ghost"
                   size="icon"
