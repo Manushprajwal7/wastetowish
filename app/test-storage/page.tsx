@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useAuth } from "@/components/auth-context";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -35,6 +35,19 @@ export default function TestStoragePage() {
 
     try {
       console.log("Testing direct Supabase storage upload...");
+
+      // Get Supabase client safely
+      let supabase;
+      try {
+        supabase = getSupabaseClient();
+      } catch (error) {
+        console.error("Supabase not initialized:", error);
+        setUploadResult({
+          success: false,
+          error: "Supabase is not configured. Storage test unavailable.",
+        });
+        return;
+      }
 
       // Test listing buckets
       console.log("Listing buckets...");

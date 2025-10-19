@@ -37,59 +37,75 @@ if (missingConfig.length > 0) {
   );
 }
 
-const app = initializeApp(firebaseConfig);
+// Only initialize Firebase if we're in the browser (not during build time)
+let app: ReturnType<typeof initializeApp> | null = null;
+let auth: ReturnType<typeof getAuth> | null = null;
+let db: ReturnType<typeof getFirestore> | null = null;
+let storage: ReturnType<typeof getStorage> | null = null;
 
-// Initialize Firebase Authentication with persistence
-export const auth = getAuth(app);
-// Set persistence to LOCAL (survives browser restarts)
-setPersistence(auth, browserLocalPersistence).catch((error) => {
-  console.error("Error setting auth persistence:", error);
-});
+// Check if we're in a browser environment
+const isBrowser = typeof window !== "undefined";
 
-// Initialize Firestore with offline persistence
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager(),
-  }),
-});
+if (isBrowser) {
+  app = initializeApp(firebaseConfig);
 
-// Enable network connectivity
-enableNetwork(db).catch((error) => {
-  console.warn("Failed to enable Firestore network:", error);
-});
+  // Initialize Firebase Authentication with persistence
+  auth = getAuth(app);
+  // Set persistence to LOCAL (survives browser restarts)
+  setPersistence(auth, browserLocalPersistence).catch((error) => {
+    console.error("Error setting auth persistence:", error);
+  });
 
-// Connect to Firestore emulator in development if needed
-if (
-  process.env.NODE_ENV === "development" &&
-  process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST
-) {
-  const [host, port] =
-    process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST.split(":");
-  connectFirestoreEmulator(db, host, parseInt(port));
-  console.log("Firestore Emulator connected");
-}
+  // Initialize Firestore with offline persistence
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager(),
+    }),
+  });
 
-export const storage = getStorage(app);
+  // Enable network connectivity
+  enableNetwork(db).catch((error) => {
+    console.warn("Failed to enable Firestore network:", error);
+  });
 
-// Check if auth is properly initialized
-auth.onAuthStateChanged(
-  (user) => {
-    if (user) {
-      console.log("Firebase Auth initialized with user:", user.email);
-    } else {
-      console.log("Firebase Auth initialized, no user signed in");
-    }
-  },
-  (error) => {
-    console.error("Firebase Auth initialization error:", error);
+  // Connect to Firestore emulator in development if needed
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST
+  ) {
+    const [host, port] =
+      process.env.NEXT_PUBLIC_FIRESTORE_EMULATOR_HOST.split(":");
+    connectFirestoreEmulator(db, host, parseInt(port));
+    console.log("Firestore Emulator connected");
   }
-);
 
-// Enable authentication emulator in development if needed
-if (
-  process.env.NODE_ENV === "development" &&
-  process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST
-) {
-  // In a real implementation, you would connect to the emulator here
-  console.log("Firebase Auth Emulator enabled");
+  storage = getStorage(app);
+
+  // Check if auth is properly initialized
+  auth.onAuthStateChanged(
+    (user) => {
+      if (user) {
+        console.log("Firebase Auth initialized with user:", user.email);
+      } else {
+        console.log("Firebase Auth initialized, no user signed in");
+      }
+    },
+    (error) => {
+      console.error("Firebase Auth initialization error:", error);
+    }
+  );
+
+  // Enable authentication emulator in development if needed
+  if (
+    process.env.NODE_ENV === "development" &&
+    process.env.NEXT_PUBLIC_FIREBASE_AUTH_EMULATOR_HOST
+  ) {
+    // In a real implementation, you would connect to the emulator here
+    console.log("Firebase Auth Emulator enabled");
+  }
+} else {
+  console.log("Firebase initialization skipped during build time");
 }
+
+// Export the initialized services
+export { app, auth, db, storage };

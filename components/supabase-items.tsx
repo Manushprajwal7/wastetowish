@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/components/auth-context";
-import { getItemsByOwner, getAllItems } from "@/lib/supabase-utils";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import {
@@ -13,6 +12,16 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { DashboardSkeleton } from "@/components/ui/loading-skeleton";
+
+// Dynamically import Supabase utilities only on client side
+let getItemsByOwner: Function | null = null;
+
+try {
+  const supabaseUtils = require("@/lib/supabase-utils");
+  getItemsByOwner = supabaseUtils.getItemsByOwner;
+} catch (error) {
+  console.warn("Supabase utilities not available during build time");
+}
 
 interface SupabaseItem {
   id: number;
@@ -53,6 +62,13 @@ export function SupabaseDashboard() {
 
     if (!user || !firebaseUser) {
       console.log("SupabaseDashboard: No user authenticated");
+      setLoading(false);
+      return;
+    }
+
+    // Check if Supabase is available
+    if (!getItemsByOwner) {
+      setError("Supabase is not configured. Dashboard is unavailable.");
       setLoading(false);
       return;
     }

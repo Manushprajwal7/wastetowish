@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/components/auth-context";
-import { getAllItems } from "@/lib/supabase-utils";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Heart, Search, Filter } from "lucide-react";
@@ -14,7 +13,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ItemCard } from "@/components/ui/item";
+
+// Dynamically import Supabase utilities only on client side
+let getAllItems: Function | null = null;
+
+try {
+  const supabaseUtils = require("@/lib/supabase-utils");
+  getAllItems = supabaseUtils.getAllItems;
+} catch (error) {
+  console.warn("Supabase utilities not available during build time");
+}
 
 interface SupabaseItem {
   id: number;
@@ -49,6 +57,13 @@ export function SupabaseMarketplace() {
   ).sort();
 
   useEffect(() => {
+    // Check if Supabase is available
+    if (!getAllItems) {
+      setError("Supabase is not configured. Marketplace is unavailable.");
+      setLoading(false);
+      return;
+    }
+
     const fetchItems = async () => {
       try {
         setLoading(true);

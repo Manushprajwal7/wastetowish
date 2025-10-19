@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/components/auth-context";
-import { getItemsByOwner } from "@/lib/supabase-utils";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Plus, Package, Search, Filter } from "lucide-react";
@@ -15,6 +14,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ProtectedRoute } from "@/components/protected-route";
+
+// Dynamically import Supabase utilities only on client side
+let getItemsByOwner: Function | null = null;
+
+try {
+  const supabaseUtils = require("@/lib/supabase-utils");
+  getItemsByOwner = supabaseUtils.getItemsByOwner;
+} catch (error) {
+  console.warn("Supabase utilities not available during build time");
+}
 
 interface SupabaseItem {
   id: number;
@@ -44,6 +53,13 @@ export default function MyItemsPage() {
 
   useEffect(() => {
     if (authLoading || !user || !firebaseUser) {
+      return;
+    }
+
+    // Check if Supabase is available
+    if (!getItemsByOwner) {
+      setError("Supabase is not configured. My items page is unavailable.");
+      setLoading(false);
       return;
     }
 

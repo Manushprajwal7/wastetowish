@@ -3,8 +3,6 @@
 import type React from "react";
 
 import { useState, useEffect } from "react";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
 import { useAuth } from "@/components/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +11,26 @@ import { useRouter } from "next/navigation";
 import type { User } from "@/lib/types";
 import { ArrowLeft, Award, Leaf, Heart, Star } from "lucide-react";
 import { ProtectedRoute } from "@/components/protected-route";
+
+// Dynamically import Firebase only on client side
+let db: any = null;
+let doc: any = null;
+let getDoc: any = null;
+let updateDoc: any = null;
+
+if (typeof window !== "undefined") {
+  try {
+    const firebaseFirestore = require("firebase/firestore");
+    const firebase = require("@/lib/firebase");
+
+    db = firebase.db;
+    doc = firebaseFirestore.doc;
+    getDoc = firebaseFirestore.getDoc;
+    updateDoc = firebaseFirestore.updateDoc;
+  } catch (error) {
+    console.warn("Firebase not available during build time");
+  }
+}
 
 export default function ProfilePage() {
   const { user, firebaseUser } = useAuth();
@@ -29,6 +47,13 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
+    // Skip if Firebase is not available
+    if (!db || !doc || !getDoc) {
+      console.warn("Firebase not available, skipping profile fetch");
+      setLoading(false);
+      return;
+    }
+
     if (!firebaseUser) return;
 
     const fetchProfile = async () => {
@@ -58,6 +83,12 @@ export default function ProfilePage() {
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Skip if Firebase is not available
+    if (!db || !doc || !updateDoc) {
+      console.warn("Firebase not available, skipping profile save");
+      return;
+    }
+
     if (!firebaseUser) return;
 
     setSaving(true);

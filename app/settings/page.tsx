@@ -5,10 +5,24 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { useRouter } from "next/navigation"
 import { useState } from "react"
-import { signOut } from "firebase/auth"
-import { auth } from "@/lib/firebase"
 import { ArrowLeft, Bell, Lock, Trash2 } from "lucide-react"
 import Link from "next/link"
+
+// Dynamically import Firebase only on client side
+let signOut: any = null;
+let auth: any = null;
+
+if (typeof window !== "undefined") {
+  try {
+    const firebaseAuth = require("firebase/auth");
+    const firebase = require("@/lib/firebase");
+    
+    signOut = firebaseAuth.signOut;
+    auth = firebase.auth;
+  } catch (error) {
+    console.warn("Firebase not available during build time");
+  }
+}
 
 export default function SettingsPage() {
   const { user } = useAuth()
@@ -22,6 +36,13 @@ export default function SettingsPage() {
   }
 
   const handleLogout = async () => {
+    // Skip if Firebase is not available
+    if (!auth || !signOut) {
+      console.warn("Firebase not available, skipping logout");
+      router.push("/");
+      return;
+    }
+    
     await signOut(auth)
     router.push("/")
   }
@@ -80,9 +101,11 @@ export default function SettingsPage() {
                   Change Password
                 </Button>
               </Link>
-              <Button variant="outline" className="w-full justify-start bg-transparent">
-                Manage Blocked Users
-              </Button>
+              <Link href="/blocked-users">
+                <Button variant="outline" className="w-full justify-start bg-transparent">
+                  Manage Blocked Users
+                </Button>
+              </Link>
             </div>
           </Card>
 

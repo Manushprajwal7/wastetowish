@@ -8,18 +8,39 @@ import {
   useState,
   useCallback,
 } from "react";
-import {
-  type User as FirebaseUser,
-  onAuthStateChanged,
-  signOut as firebaseSignOut,
-} from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
 import type { User } from "@/lib/types";
+
+// Check if we're in a browser environment
+const isBrowser = typeof window !== "undefined";
+
+// Dynamically import Firebase only on client side
+let auth: any = null;
+let db: any = null;
+let onAuthStateChanged: any = null;
+let firebaseSignOut: any = null;
+let doc: any = null;
+let getDoc: any = null;
+
+if (isBrowser) {
+  try {
+    const firebaseAuth = require("firebase/auth");
+    const firebaseFirestore = require("firebase/firestore");
+    const firebase = require("@/lib/firebase");
+
+    auth = firebase.auth;
+    db = firebase.db;
+    onAuthStateChanged = firebaseAuth.onAuthStateChanged;
+    firebaseSignOut = firebaseAuth.signOut;
+    doc = firebaseFirestore.doc;
+    getDoc = firebaseFirestore.getDoc;
+  } catch (error) {
+    console.warn("Firebase not available during build time");
+  }
+}
 
 interface AuthContextType {
   user: User | null;
-  firebaseUser: FirebaseUser | null;
+  firebaseUser: any | null;
   loading: boolean;
   signOut: () => Promise<void>;
 }
@@ -28,12 +49,19 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
 
   const fetchUserData = useCallback(
-    async (fbUser: FirebaseUser) => {
+    async (fbUser: any) => {
+      // Skip if Firebase is not available
+      if (!db || !doc || !getDoc) {
+        console.warn("Firebase not available, skipping user data fetch");
+        setLoading(false);
+        return;
+      }
+
       try {
         // Fetch user data from Firestore only if not already loaded
         if (initialLoad) {
@@ -116,6 +144,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
+    // Skip if Firebase is not available
+    if (!auth || !firebaseSignOut) {
+      console.warn("Firebase not available, skipping sign out");
+      return;
+    }
+
     try {
       await firebaseSignOut(auth);
       setUser(null);
@@ -128,7 +162,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+    // Skip if Firebase is not available
+    if (!auth || !onAuthStateChanged) {
+      console.warn("Firebase not available, skipping auth state listener");
+      setLoading(false);
+      return;
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser: any) => {
       setFirebaseUser(fbUser);
       if (fbUser) {
         // Defer user data fetching to improve initial load time

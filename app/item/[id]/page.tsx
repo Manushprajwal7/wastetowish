@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/components/auth-context";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseClient } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft, Heart, MessageSquare, Share2 } from "lucide-react";
@@ -51,6 +51,16 @@ export default function ItemDetailPage({
         setLoading(true);
         setError(null);
 
+        // Get Supabase client safely
+        let supabase;
+        try {
+          supabase = getSupabaseClient();
+        } catch (error) {
+          console.error("Supabase not initialized:", error);
+          setError("Supabase is not configured. Item details unavailable.");
+          return;
+        }
+
         const { data, error } = await supabase
           .from("items")
           .select("*")
@@ -68,11 +78,11 @@ export default function ItemDetailPage({
           return;
         }
 
-        setItem(data);
+        setItem(data as SupabaseItem);
 
         // Check if current user is the owner
         if (firebaseUser) {
-          setIsOwner(data.owner_id === firebaseUser.uid);
+          setIsOwner((data as any).owner_id === firebaseUser.uid);
         }
       } catch (err) {
         console.error("Error fetching item:", err);

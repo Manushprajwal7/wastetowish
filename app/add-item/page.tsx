@@ -12,9 +12,22 @@ import { Upload } from "lucide-react";
 import { ProtectedRoute } from "@/components/protected-route";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { StorageTest } from "@/components/storage-test";
-import { uploadImageToSupabase } from "@/lib/supabase-utils";
-import { createItem } from "@/lib/supabase-utils";
-import { SupabaseItem } from "@/lib/supabase";
+
+// Only import Supabase functions conditionally to avoid build errors
+let uploadImageToSupabase: Function | null = null;
+let createItem: Function | null = null;
+let SupabaseItem: any = null;
+
+try {
+  // Dynamically import Supabase utilities only on client side
+  const supabaseUtils = require("@/lib/supabase-utils");
+  const supabaseTypes = require("@/lib/supabase");
+  uploadImageToSupabase = supabaseUtils.uploadImageToSupabase;
+  createItem = supabaseUtils.createItem;
+  SupabaseItem = supabaseTypes.SupabaseItem;
+} catch (error) {
+  console.warn("Supabase utilities not available during build time");
+}
 
 export default function AddItemPage() {
   const { user, firebaseUser } = useAuth();
@@ -74,9 +87,15 @@ export default function AddItemPage() {
       return;
     }
 
+    // Check if Supabase is available
+    if (!createItem) {
+      setError("Supabase is not configured. Item creation is disabled.");
+      return;
+    }
+
     console.log("Testing Supabase item creation...");
     try {
-      const testItem: SupabaseItem = {
+      const testItem: any = {
         title: "Test Item",
         description: "This is a test item",
         category: "Other",
@@ -112,6 +131,12 @@ export default function AddItemPage() {
       return;
     }
 
+    // Check if Supabase is available
+    if (!createItem) {
+      setError("Supabase is not configured. Item creation is disabled.");
+      return;
+    }
+
     // Validate form data
     if (!formData.title.trim()) {
       setError("Please enter an item title");
@@ -143,7 +168,7 @@ export default function AddItemPage() {
     try {
       let imageURL = "";
 
-      if (imageFile) {
+      if (imageFile && uploadImageToSupabase) {
         try {
           console.log("Uploading image to Supabase...");
           const uploadResult = await uploadImageToSupabase(
@@ -176,7 +201,7 @@ export default function AddItemPage() {
       }
 
       console.log("Adding item to Supabase...");
-      const itemData: SupabaseItem = {
+      const itemData: any = {
         title: formData.title,
         description: formData.description,
         category: formData.category,

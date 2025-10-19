@@ -1,4 +1,5 @@
-import { supabase, SupabaseItem } from "./supabase";
+import { getSupabaseClient } from "./supabase";
+import { SupabaseItem } from "./supabase";
 
 /**
  * Upload an image to Supabase Storage
@@ -45,6 +46,9 @@ export async function uploadImageToSupabase(file: File, userId: string) {
     const fileExt = file.name.split(".").pop();
     const fileName = `${userId}/${Date.now()}.${fileExt}`;
     console.log("Generated file name:", fileName);
+
+    // Get Supabase client (will throw if not configured)
+    const supabase = getSupabaseClient();
 
     // Check if the bucket exists and is accessible
     console.log("Checking if bucket 'item-images' exists...");
@@ -112,6 +116,16 @@ export async function uploadImageToSupabase(file: File, userId: string) {
     return { success: true, url: publicUrl };
   } catch (error: any) {
     console.error("Image upload error:", error);
+    // Handle the case where Supabase is not configured
+    if (
+      error.message &&
+      error.message.includes("Supabase client not initialized")
+    ) {
+      return {
+        success: false,
+        error: "Supabase is not configured. Image upload is disabled.",
+      };
+    }
     return {
       success: false,
       error: `Upload failed: ${error.message || "Please try again."}`,
@@ -128,11 +142,14 @@ export async function createItem(item: SupabaseItem) {
   try {
     console.log("Creating item with data:", item);
 
+    // Get Supabase client (will throw if not configured)
+    const supabase = getSupabaseClient();
+
     // Since we're using Firebase Auth, we need to bypass RLS restrictions
     // by using the service role key or adjusting policies
     const { data, error } = await supabase
       .from("items")
-      .insert(item)
+      .insert([item] as any) // Type assertion to bypass TS error
       .select()
       .single();
 
@@ -148,6 +165,16 @@ export async function createItem(item: SupabaseItem) {
     return { success: true, data };
   } catch (error: any) {
     console.error("Item creation error:", error);
+    // Handle the case where Supabase is not configured
+    if (
+      error.message &&
+      error.message.includes("Supabase client not initialized")
+    ) {
+      return {
+        success: false,
+        error: "Supabase is not configured. Item creation is disabled.",
+      };
+    }
     return {
       success: false,
       error: `Creation failed: ${error.message || "Please try again."}`,
@@ -163,6 +190,10 @@ export async function createItem(item: SupabaseItem) {
 export async function getItemsByOwner(ownerId: string) {
   try {
     console.log("Fetching items for owner:", ownerId);
+
+    // Get Supabase client (will throw if not configured)
+    const supabase = getSupabaseClient();
+
     const { data, error } = await supabase
       .from("items")
       .select("*")
@@ -181,6 +212,16 @@ export async function getItemsByOwner(ownerId: string) {
     return { success: true, data };
   } catch (error: any) {
     console.error("Get items error:", error);
+    // Handle the case where Supabase is not configured
+    if (
+      error.message &&
+      error.message.includes("Supabase client not initialized")
+    ) {
+      return {
+        success: false,
+        error: "Supabase is not configured. Item fetching is disabled.",
+      };
+    }
     return {
       success: false,
       error: `Fetch failed: ${error.message || "Please try again."}`,
@@ -195,6 +236,10 @@ export async function getItemsByOwner(ownerId: string) {
 export async function getAllItems() {
   try {
     console.log("Fetching all items");
+
+    // Get Supabase client (will throw if not configured)
+    const supabase = getSupabaseClient();
+
     const { data, error } = await supabase
       .from("items")
       .select("*")
@@ -212,6 +257,16 @@ export async function getAllItems() {
     return { success: true, data };
   } catch (error: any) {
     console.error("Get all items error:", error);
+    // Handle the case where Supabase is not configured
+    if (
+      error.message &&
+      error.message.includes("Supabase client not initialized")
+    ) {
+      return {
+        success: false,
+        error: "Supabase is not configured. Item fetching is disabled.",
+      };
+    }
     return {
       success: false,
       error: `Fetch failed: ${error.message || "Please try again."}`,

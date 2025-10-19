@@ -1,11 +1,26 @@
 import { createClient } from "@supabase/supabase-js";
 
-// Supabase configuration
+// Supabase configuration with fallbacks
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 
-// Create Supabase client
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Lazy initialization of Supabase client
+let supabaseClient: ReturnType<typeof createClient> | null = null;
+
+export const getSupabaseClient = () => {
+  // Only initialize client when actually needed and when we have config
+  if (!supabaseClient && supabaseUrl && supabaseAnonKey) {
+    supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+  }
+
+  if (!supabaseClient) {
+    throw new Error(
+      "Supabase client not initialized. Check your environment variables."
+    );
+  }
+
+  return supabaseClient;
+};
 
 // Define the item type
 export interface SupabaseItem {
