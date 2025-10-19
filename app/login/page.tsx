@@ -200,13 +200,7 @@ export default function LoginPage() {
             </Link>
           </div>
 
-          <div className="text-center text-sm text-muted-foreground mb-4">
-            <p>Having trouble signing in?</p>
-            <p className="mt-1">
-              Make sure Firebase Authentication is enabled in the Firebase
-              Console.
-            </p>
-          </div>
+       
 
           <p className="text-center text-sm text-muted-foreground">
             Don't have an account?{" "}
