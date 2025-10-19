@@ -9,9 +9,13 @@ import {
   connectFirestoreEmulator,
   enableNetwork,
   disableNetwork,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
+// Validate Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -22,6 +26,17 @@ const firebaseConfig = {
   // Note: Do not include databaseURL for Firestore - only needed for Realtime Database
 };
 
+// Check for missing configuration
+const missingConfig = Object.entries(firebaseConfig).filter(
+  ([key, value]) => !value
+);
+if (missingConfig.length > 0) {
+  console.warn(
+    "Missing Firebase configuration:",
+    missingConfig.map(([key]) => key)
+  );
+}
+
 const app = initializeApp(firebaseConfig);
 
 // Initialize Firebase Authentication with persistence
@@ -31,18 +46,17 @@ setPersistence(auth, browserLocalPersistence).catch((error) => {
   console.error("Error setting auth persistence:", error);
 });
 
-export const db = getFirestore(app);
+// Initialize Firestore with offline persistence
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager(),
+  }),
+});
 
-// Enable offline persistence for Firestore
-// This will help with the "client is offline" errors
-try {
-  // Enable network connectivity
-  enableNetwork(db).catch((error) => {
-    console.warn("Failed to enable Firestore network:", error);
-  });
-} catch (error) {
-  console.warn("Firestore network configuration warning:", error);
-}
+// Enable network connectivity
+enableNetwork(db).catch((error) => {
+  console.warn("Failed to enable Firestore network:", error);
+});
 
 // Connect to Firestore emulator in development if needed
 if (

@@ -7,8 +7,15 @@ const nextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
-    unoptimized: true,
+    unoptimized: false, // Enable image optimization
+    domains: ["firebasestorage.googleapis.com", "localhost"], // Add Firebase storage domain
   },
-}
+  // Enable performance optimizations
+  experimental: {
+    optimizeCss: true,
+  },
+  // Add compression
+  compress: true,
+};
 
-export default nextConfig
+export default nextConfig;

@@ -5,8 +5,8 @@ import { Analytics } from "@vercel/analytics/next";
 import { AuthProvider } from "@/components/auth-context";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/app/footer";
-import { FirebaseDebug } from "@/components/firebase-debug";
 import "./globals.css";
+import { PerformanceMonitor } from "@/components/performance-monitor"; // Add performance monitoring
 
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
@@ -25,7 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans antialiased`}>
-        <FirebaseDebug />
+        {process.env.NODE_ENV === "development" && <PerformanceMonitor />}
         <AuthProvider>
           <Navbar />
           {children}

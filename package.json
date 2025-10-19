@@ -6,7 +6,11 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "next start",
+    "setup-cors": "node scripts/setup-cors.js",
+    "cors-workaround": "node scripts/cors-workaround.js",
+    "setup-permissive-cors": "node scripts/cors-workaround.js",
+    "apply-permissive-cors": "node apply-permissive-cors.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
@@ -39,6 +43,7 @@
     "@radix-ui/react-toggle-group": "1.1.1",
     "@radix-ui/react-tooltip": "1.1.6",
     "@sendgrid/mail": "latest",
+    "@supabase/supabase-js": "^2.48.1",
     "@vercel/analytics": "latest",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",

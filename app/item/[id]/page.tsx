@@ -1,265 +1,283 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { doc, getDoc, collection, query, where, getDocs, addDoc, deleteDoc, serverTimestamp } from "firebase/firestore"
-import { db } from "@/lib/firebase"
-import { useAuth } from "@/components/auth-context"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
-import { useParams, useRouter } from "next/navigation"
-import type { Item } from "@/lib/types"
-import { MapPin, ArrowLeft, Heart, Star, Flag } from "lucide-react"
+import { useState, useEffect } from "react";
+import { useAuth } from "@/components/auth-context";
+import { supabase } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { ArrowLeft, Heart, MessageSquare, Share2 } from "lucide-react";
+import { ProtectedRoute } from "@/components/protected-route";
 
-export default function ItemDetailPage() {
-  const { user } = useAuth()
-  const params = useParams()
-  const router = useRouter()
-  const itemId = params.id as string
+interface SupabaseItem {
+  id: number;
+  title: string;
+  description: string;
+  category: string;
+  condition: string;
+  location: string;
+  image_url: string;
+  owner_id: string;
+  owner_name: string;
+  status: string;
+  created_at: string;
+}
 
-  const [item, setItem] = useState<Item | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [inWishlist, setInWishlist] = useState(false)
-  const [reviews, setReviews] = useState<any[]>([])
+export default function ItemDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { user, firebaseUser, loading: authLoading } = useAuth();
+  const [item, setItem] = useState<SupabaseItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isOwner, setIsOwner] = useState(false);
+  const [itemId, setItemId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!itemId) return
+    // Unwrap the params promise
+    params.then((unwrappedParams) => {
+      setItemId(unwrappedParams.id);
+    });
+  }, [params]);
+
+  useEffect(() => {
+    if (authLoading || !itemId) {
+      return;
+    }
 
     const fetchItem = async () => {
       try {
-        const docRef = doc(db, "items", itemId)
-        const docSnap = await getDoc(docRef)
+        setLoading(true);
+        setError(null);
 
-        if (docSnap.exists()) {
-          setItem({
-            id: docSnap.id,
-            ...docSnap.data(),
-          } as Item)
+        const { data, error } = await supabase
+          .from("items")
+          .select("*")
+          .eq("id", itemId)
+          .single();
 
-          const reviewsQuery = query(collection(db, "reviews"), where("itemId", "==", itemId))
-          const reviewsSnapshot = await getDocs(reviewsQuery)
-          setReviews(reviewsSnapshot.docs.map((doc) => doc.data()))
-
-          if (user) {
-            const wishlistQuery = query(
-              collection(db, "wishlist"),
-              where("userId", "==", user.id),
-              where("itemId", "==", itemId),
-            )
-            const wishlistSnapshot = await getDocs(wishlistQuery)
-            setInWishlist(wishlistSnapshot.docs.length > 0)
-          }
-        } else {
-          setError("Item not found")
+        if (error) {
+          console.error("Error fetching item:", error);
+          setError("Failed to load item. Please try again.");
+          return;
         }
-      } catch (err: any) {
-        setError(err.message || "Failed to load item")
+
+        if (!data) {
+          setError("Item not found.");
+          return;
+        }
+
+        setItem(data);
+
+        // Check if current user is the owner
+        if (firebaseUser) {
+          setIsOwner(data.owner_id === firebaseUser.uid);
+        }
+      } catch (err) {
+        console.error("Error fetching item:", err);
+        setError("Failed to load item. Please try again.");
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchItem()
-  }, [itemId, user])
+    fetchItem();
+  }, [itemId, firebaseUser, authLoading]);
 
-  const handleRequestItem = () => {
-    if (!user) {
-      router.push("/login")
-      return
-    }
-
-    router.push(`/request/${itemId}`)
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-lg">Loading...</p>
+        </div>
+      </div>
+    );
   }
 
-  const handleAddToWishlist = async () => {
-    if (!user) {
-      router.push("/login")
-      return
-    }
-
-    try {
-      if (inWishlist) {
-        const wishlistQuery = query(
-          collection(db, "wishlist"),
-          where("userId", "==", user.id),
-          where("itemId", "==", itemId),
-        )
-        const wishlistSnapshot = await getDocs(wishlistQuery)
-        for (const doc of wishlistSnapshot.docs) {
-          await deleteDoc(doc.ref)
-        }
-      } else {
-        await addDoc(collection(db, "wishlist"), {
-          userId: user.id,
-          itemId,
-          addedAt: serverTimestamp(),
-        })
-      }
-      setInWishlist(!inWishlist)
-    } catch (error) {
-      console.error("Error updating wishlist:", error)
-    }
+  if (!user || !firebaseUser) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <p className="text-lg mb-4">Please sign in to view item details</p>
+          <Link href="/login">
+            <Button>Sign In</Button>
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-background">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="animate-pulse">
+            <div className="h-6 bg-muted rounded w-1/4 mb-8"></div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="aspect-square bg-muted rounded-lg"></div>
+              <div>
+                <div className="h-8 bg-muted rounded w-3/4 mb-4"></div>
+                <div className="h-4 bg-muted rounded w-full mb-2"></div>
+                <div className="h-4 bg-muted rounded w-2/3 mb-6"></div>
+                <div className="space-y-2 mb-6">
+                  <div className="h-6 bg-muted rounded w-1/4"></div>
+                  <div className="h-6 bg-muted rounded w-1/4"></div>
+                  <div className="h-6 bg-muted rounded w-1/4"></div>
+                </div>
+                <div className="h-10 bg-muted rounded w-1/3"></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-    )
+    );
   }
 
   if (error || !item) {
     return (
       <div className="min-h-screen bg-background">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <button onClick={() => router.back()} className="flex items-center gap-2 text-primary hover:underline mb-8">
-            <ArrowLeft className="w-4 h-4" />
-            Back
-          </button>
           <div className="text-center py-12">
-            <p className="text-lg text-destructive">{error || "Item not found"}</p>
-            <Link href="/marketplace" className="mt-4 inline-block">
-              <Button>Return to Marketplace</Button>
+            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 inline-block mb-6">
+              <p className="text-destructive">{error || "Item not found"}</p>
+            </div>
+            <Link href="/marketplace">
+              <Button variant="outline" className="gap-2">
+                <ArrowLeft className="w-4 h-4" />
+                Back to Marketplace
+              </Button>
             </Link>
           </div>
         </div>
       </div>
-    )
+    );
   }
 
-  const isOwnItem = user?.id === item.ownerId
-
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <button onClick={() => router.back()} className="flex items-center gap-2 text-primary hover:underline mb-8">
-          <ArrowLeft className="w-4 h-4" />
-          Back to Marketplace
-        </button>
+    <ProtectedRoute>
+      <div className="min-h-screen bg-background">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Link
+            href="/marketplace"
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Marketplace
+          </Link>
 
-        <div className="grid md:grid-cols-2 gap-8">
-          {/* Image Section */}
-          <div className="flex flex-col gap-4">
-            <div className="w-full aspect-square bg-muted rounded-lg overflow-hidden flex items-center justify-center">
-              {item.imageURL ? (
-                <img
-                  src={item.imageURL || "/placeholder.svg"}
-                  alt={item.title}
-                  className="w-full h-full object-cover"
-                />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Image */}
+            <div>
+              {item.image_url ? (
+                <div className="aspect-square rounded-lg overflow-hidden">
+                  <img
+                    src={item.image_url}
+                    alt={item.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.parentElement!.innerHTML = `
+                        <div class="w-full h-full bg-muted flex items-center justify-center">
+                          <span class="text-muted-foreground">No Image Available</span>
+                        </div>
+                      `;
+                    }}
+                  />
+                </div>
               ) : (
-                <div className="text-muted-foreground text-center">
-                  <p>No image available</p>
+                <div className="aspect-square bg-muted rounded-lg flex items-center justify-center">
+                  <span className="text-muted-foreground">No Image</span>
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Details Section */}
-          <div className="flex flex-col gap-6">
+            {/* Details */}
             <div>
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div>
-                  <h1 className="text-3xl font-bold mb-2">{item.title}</h1>
-                  <div className="flex gap-2 flex-wrap">
-                    <span className="text-sm bg-primary/10 text-primary px-3 py-1 rounded-full">{item.category}</span>
-                    <span className="text-sm bg-secondary/10 text-secondary-foreground px-3 py-1 rounded-full">
-                      {item.condition}
-                    </span>
+              <div className="mb-6">
+                <h1 className="text-3xl font-bold mb-2">{item.title}</h1>
+                <p className="text-muted-foreground mb-6">{item.description}</p>
+
+                <div className="grid grid-cols-2 gap-4 mb-6">
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                      Category
+                    </h3>
+                    <p className="font-medium">{item.category}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                      Condition
+                    </h3>
+                    <p className="font-medium">{item.condition}</p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                      Location
+                    </h3>
+                    <p className="font-medium">
+                      {item.location || "Not specified"}
+                    </p>
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-medium text-muted-foreground mb-1">
+                      Status
+                    </h3>
+                    <p className="font-medium capitalize">{item.status}</p>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="border-t border-border pt-6">
-              <h2 className="font-semibold mb-3">Description</h2>
-              <p className="text-muted-foreground leading-relaxed">{item.description}</p>
-            </div>
+              <div className="flex flex-wrap gap-3 mb-6">
+                <span className="text-xs bg-primary/10 text-primary px-3 py-1 rounded-full">
+                  {item.category}
+                </span>
+                <span className="text-xs bg-secondary/10 text-secondary-foreground px-3 py-1 rounded-full">
+                  {item.condition}
+                </span>
+                <span className="text-xs bg-muted/10 text-muted-foreground px-3 py-1 rounded-full">
+                  {item.status}
+                </span>
+              </div>
 
-            {item.location && (
-              <div className="border-t border-border pt-6">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <MapPin className="w-5 h-5" />
-                  <span>{item.location}</span>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <p className="text-sm text-muted-foreground">Listed by</p>
+                  <p className="font-medium">{item.owner_name}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Posted on</p>
+                  <p className="font-medium">
+                    {new Date(item.created_at).toLocaleDateString()}
+                  </p>
                 </div>
               </div>
-            )}
 
-            <div className="border-t border-border pt-6">
-              <h3 className="font-semibold mb-3">About the Donor</h3>
-              <p className="text-muted-foreground mb-4">{item.ownerName}</p>
-              {!isOwnItem && (
-                <p className="text-sm text-muted-foreground">Contact the donor to arrange pickup or delivery</p>
-              )}
-            </div>
-
-            {/* Action Buttons */}
-            <div className="border-t border-border pt-6 flex gap-3">
-              {isOwnItem ? (
-                <Button disabled className="flex-1">
-                  Your Item
-                </Button>
-              ) : (
-                <>
-                  <Button onClick={handleRequestItem} className="flex-1 gap-2">
-                    <Heart className="w-4 h-4" />
-                    Request Item
+              <div className="flex flex-wrap gap-3">
+                {isOwner ? (
+                  <Button variant="outline" disabled>
+                    Your Item
                   </Button>
-                  <Button
-                    variant={inWishlist ? "default" : "outline"}
-                    size="icon"
-                    onClick={handleAddToWishlist}
-                    title={inWishlist ? "Remove from wishlist" : "Add to wishlist"}
-                  >
-                    <Heart className={`w-4 h-4 ${inWishlist ? "fill-current" : ""}`} />
-                  </Button>
-                  <Link href={`/report?itemId=${itemId}`}>
-                    <Button variant="outline" size="icon" title="Report item">
-                      <Flag className="w-4 h-4" />
+                ) : (
+                  <>
+                    <Button className="flex-1">
+                      <Heart className="w-4 h-4 mr-2" />
+                      Request Item
                     </Button>
-                  </Link>
-                </>
-              )}
-            </div>
-
-            {isOwnItem && (
-              <div className="bg-primary/10 border border-primary/20 rounded-lg p-4">
-                <p className="text-sm text-primary">This is your item. You can manage it from your dashboard.</p>
+                    <Button variant="outline">
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Message
+                    </Button>
+                  </>
+                )}
+                <Button variant="outline">
+                  <Share2 className="w-4 h-4" />
+                </Button>
               </div>
-            )}
+            </div>
           </div>
         </div>
-
-        {reviews.length > 0 && (
-          <div className="mt-12 pt-8 border-t border-border">
-            <h2 className="text-2xl font-bold mb-6">Reviews</h2>
-            <div className="space-y-4">
-              {reviews.map((review, idx) => (
-                <div key={idx} className="bg-card border border-border rounded-lg p-4">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <p className="font-semibold">{review.reviewerName}</p>
-                      <div className="flex gap-1 mt-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star
-                            key={i}
-                            className={`w-4 h-4 ${i < review.rating ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                    <span className="text-sm text-muted-foreground">
-                      {new Date(review.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <p className="text-muted-foreground">{review.comment}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
-    </div>
-  )
+    </ProtectedRoute>
+  );
 }

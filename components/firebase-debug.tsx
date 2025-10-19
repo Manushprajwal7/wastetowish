@@ -5,6 +5,11 @@ import { auth } from "@/lib/firebase";
 
 export function FirebaseDebug() {
   useEffect(() => {
+    // Only run in development
+    if (process.env.NODE_ENV !== "development") {
+      return;
+    }
+
     console.log("Firebase Debug: Checking auth state");
     const unsubscribe = auth.onAuthStateChanged((user) => {
       console.log("Firebase Debug: Auth state changed", user);

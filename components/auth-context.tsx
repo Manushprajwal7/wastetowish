@@ -37,9 +37,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         // Fetch user data from Firestore only if not already loaded
         if (initialLoad) {
-          const userDoc = await getDoc(doc(db, "users", fbUser.uid));
+          console.log("Fetching user data for:", fbUser.uid);
+
+          // Increase timeout to 10 seconds to accommodate slower network conditions
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(
+              () => reject(new Error("User data fetch timeout")),
+              10000
+            )
+          );
+
+          const userDocPromise = getDoc(doc(db, "users", fbUser.uid));
+
+          // Use Promise.race with better error handling
+          const userDoc = (await Promise.race([
+            userDocPromise,
+            timeoutPromise,
+          ])) as any;
+
           if (userDoc.exists()) {
             const userData = userDoc.data();
+            console.log("User data fetched successfully:", userData);
+
             setUser({
               id: fbUser.uid,
               name: userData.name || fbUser.displayName || "User",
@@ -59,6 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             });
           } else {
             // Fallback if user document doesn't exist
+            console.log("User document not found, using fallback data");
             setUser({
               id: fbUser.uid,
               name: fbUser.displayName || "User",
@@ -71,8 +91,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           setInitialLoad(false);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching user data:", error);
+
+        // Handle timeout specifically
+        if (error.message === "User data fetch timeout") {
+          console.warn("User data fetch timed out, using minimal user data");
+        }
+
         // Fallback user data
         setUser({
           id: fbUser.uid,
@@ -105,7 +131,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       setFirebaseUser(fbUser);
       if (fbUser) {
-        await fetchUserData(fbUser);
+        // Defer user data fetching to improve initial load time
+        // Use requestIdleCallback if available for better performance
+        if (window.requestIdleCallback) {
+          window.requestIdleCallback(
+            () => {
+              fetchUserData(fbUser);
+            },
+            { timeout: 2000 }
+          );
+        } else {
+          // Fallback for browsers that don't support requestIdleCallback
+          setTimeout(() => {
+            fetchUserData(fbUser);
+          }, 100);
+        }
       } else {
         setUser(null);
         setInitialLoad(true);

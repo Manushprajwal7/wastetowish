@@ -23,7 +23,7 @@ export default function LoginPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (user && !loading) {
-      router.push("/marketplace");
+      router.push("/dashboard");
     }
   }, [user, loading, router]);
 
@@ -67,14 +67,23 @@ export default function LoginPage() {
         throw new Error("Firebase Auth is not initialized properly");
       }
 
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        email,
-        password
+      // Add timeout to prevent hanging (15 seconds)
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Login timeout")), 15000)
       );
 
+      const loginPromise = signInWithEmailAndPassword(auth, email, password);
+
+      const userCredential = (await Promise.race([
+        loginPromise,
+        timeoutPromise,
+      ])) as any;
+
       console.log("User signed in successfully:", userCredential.user);
-      router.push("/dashboard");
+      // Add a small delay to allow user data to load
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 500);
     } catch (err: any) {
       console.error("Login error:", err);
       console.error("Error code:", err.code);
@@ -105,6 +114,16 @@ export default function LoginPage() {
         setError(
           "Too many failed login attempts. Please try again later or reset your password."
         );
+      } else if (err.message === "Login timeout") {
+        setError(
+          "Login is taking longer than expected. Please check your internet connection and try again."
+        );
+      } else if (err.message === "User data fetch timeout") {
+        // This is not an error we should show to the user, as the login was successful
+        // Just redirect to dashboard
+        console.warn("User data fetch timed out, but login was successful");
+        router.push("/dashboard");
+        return;
       } else {
         setError(
           `Login failed: ${
